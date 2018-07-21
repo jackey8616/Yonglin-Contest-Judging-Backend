@@ -14,19 +14,27 @@ cors = CORS(app, resources={ r'/api/*': { 'origins': '*' } })
 async def index(request):
     return jsonRes({ 'hello': 'world' })
 
+@app.route('/api/contest/check-duplicate', methods=['POST'])
+async def ContestCheck(request):
+    try:
+        data = db.Contest.find(request.raw_args, projection={ '_id': False })
+        return jsonRes({ 'status': 'success', 'data': data })
+    except Exception as e:
+        return jsonRes({ 'status': 'failed', 'detail': e })
+
 @app.route('/api/contest/list', methods=['GET'])
 async def ContestList(request):
     try:
         res = {}
         res['contest-lists'] = db.Contest.find(projection={'info':True, '_id': False})
-        return jsonRes({'status': 'success', 'data': res})
+        return jsonRes({ 'status': 'success', 'data': res })
     except Exception as e:
         return jsonRes({ 'status': 'failed', 'detail': e })
 
 @app.route('/api/contest/info', methods=['GET'])
 async def ContestInfo(request):
     try:
-        data = db.Contest.find({ 'info.contestName': request.query_string }, { '_id': False })
+        data = db.Contest.find_one({ 'info.contestName': request.query_string }, { '_id': False })
         return jsonRes({ 'status': 'success', 'data': data })
     except Exception as e:
         return jsonRes({'status': 'failed', 'detail': e })
@@ -43,6 +51,14 @@ async def ContestCreate(request):
         return jsonRes({'status': 'success'})
     except Exception as e:
         return jsonRes({'status': 'failed', 'detail': e })
+
+@app.route('/api/judge/info', methods=['GET'])
+async def JudgeInfo(request):
+    try:
+        data = db.User.find_one({ 'email': request.query_string }, { '_id': False })
+        return jsonRes({ 'status': 'success', 'data': data })
+    except Exception as e:
+        return jsonRes({ 'status': 'failed', 'detail': e })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
