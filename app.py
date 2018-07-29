@@ -90,7 +90,8 @@ async def ContestCreate(request):
                 userData['contests'][jsonObj['info']['contestName']] = each['term']
             else: # New User
                 global user
-                userData['passwd'] = user.randomPasswd()
+                #userData['passwd'] = user.randomPasswd()  <-- Random passwd
+                userData['passwd'] = user.hashPasswd(each['email']) # <-- Temporary password same as email
                 userData['contests'] = { jsonObj['info']['contestName']: each['term'] }
                 del userData['term']
             db.User.update({ 'email': each['email'] }, userData, upsert=True)
