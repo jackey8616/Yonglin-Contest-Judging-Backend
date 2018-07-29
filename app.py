@@ -26,7 +26,7 @@ async def Login(request):
     try:
         email = request.raw_args['account']
         hashPasswd = user.hashPasswd(request.raw_args['passwd']) 
-        data = db.User.find_one({ 'email': email, 'passwd': hashPasswd }, projection={ '_id': False})
+        data = db.User.find_one({ 'email': email, 'passwd': hashPasswd }, projection={ '_id': False })
         del data['passwd']
         return jsonRes({ 'status': 'success', 'data': data })
     except Exception as e:
@@ -56,15 +56,23 @@ async def ContestMark(request):
         contest = json.loads(request.raw_args['contest'])
         mark = request.raw_args['mark']
         data = db.Contest.find_one({'info.contestName': contest['info']['contestName']}, { '_id': False })
-        data['mark'] = {
-            judgeEmail: json.loads(mark)
-        }
+        if 'mark' in data:
+            data['mark'][judgeEmail]= json.loads(mark)
+        else:
+            data['mark'] = {
+                judgeEmail: json.loads(mark)
+            }
         db.Contest.update({'info.contestName': contest['info']['contestName']}, data, upsert=False)
+        final = calFinal(contest['info']['contestName'])
+        if final != {}:
+            data['final'] = final
+            db.Contest.update({'info.contestName': contest['info']['contestName']}, data, upsert=False)
         judgeData = db.User.find_one({'email': judgeEmail}, { '_id': False })
         del judgeData['cache']
         db.User.update({'email': judgeEmail}, judgeData, upsert=False)
         return jsonRes({ 'status': 'success' })
     except Exception as e:
+        traceback.print_exc()
         return jsonRes({ 'status': 'failed', 'detail': e })
 
 
@@ -132,6 +140,33 @@ def backendStatus():
             user.addAdmin(config.adminMail, name='管理員', passwd='admin')
     except Exception as e:
         traceback.print_exc()
+
+def calFinal(contestName):
+    data = db.Contest.find_one({ 'info.contestName': contestName }, projection={ '_id': False })
+    final = {}
+    smallTermCount = 0
+
+    for each in data['judge']['judges']:
+        for term in each['term']:
+            smallTermCount += 1
+    smallTermCount *= 10
+
+    if len(data['mark']) == len(data['judge']['judges']):
+        for eachTeam in data['team']['teams']:
+            final[eachTeam['name']] = {}
+            for eachTerm in data['term']['terms']:
+                if eachTerm['depend'] == None:
+                    final[eachTeam['name']][eachTerm['name']] = 0
+        for (mail, term) in data['mark'].items():
+            for (term, mark) in term.items():
+                termObj = [ each for each in data['term']['terms'] if each['name'] == term ][0]
+                for (team, score) in mark.items():
+                    final[team][termObj['depend']] += float(score) * float(termObj['weight'])
+        for eachTerm in data['term']['terms']:
+            if eachTerm['depend'] == None:
+                for (team, score) in final.items():
+                    final[team][eachTerm['name'] + '_weight'] = final[team][eachTerm['name']] / smallTermCount * float(eachTerm['weight'])
+    return final
 
 if __name__ == '__main__':
     backendStatus()
