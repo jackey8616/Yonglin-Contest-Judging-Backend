@@ -144,12 +144,6 @@ def backendStatus():
 def calFinal(contestName):
     data = db.Contest.find_one({ 'info.contestName': contestName }, projection={ '_id': False })
     final = {}
-    smallTermCount = 0
-
-    for each in data['judge']['judges']:
-        for term in each['term']:
-            smallTermCount += 1
-    smallTermCount *= 10
 
     if len(data['mark']) == len(data['judge']['judges']):
         for eachTeam in data['team']['teams']:
@@ -165,7 +159,11 @@ def calFinal(contestName):
         for eachTerm in data['term']['terms']:
             if eachTerm['depend'] == None:
                 for (team, score) in final.items():
-                    final[team][eachTerm['name'] + '_weight'] = final[team][eachTerm['name']] / smallTermCount * float(eachTerm['weight'])
+                    final[team][eachTerm['name'] + '_weight'] = final[team][eachTerm['name']] * float(eachTerm['weight'])
+                    if 'summation' in final[team]:
+                        final[team]['summation'] += final[team][eachTerm['name'] + '_weight']
+                    else:
+                        final[team]['summation'] = final[team][eachTerm['name'] + '_weight']
     return final
 
 if __name__ == '__main__':
